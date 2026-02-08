@@ -7,6 +7,7 @@ import { SetInput } from '../components/SetInput'
 import { Timer } from '../components/Timer'
 import { WorkoutProgressBar, SetProgressDots } from '../components/ProgressBadge'
 import { formatWarmupDisplay } from '../data/exercises'
+import { unlockAudio, requestNotificationPermission } from '../utils/audio'
 import WorkoutSummary from './WorkoutSummary'
 
 type WorkoutPhase = 'warmup' | 'working' | 'rest' | 'complete'
@@ -88,6 +89,13 @@ export default function WorkoutScreen() {
   }
 
   const handleCompleteSet = async () => {
+    // Unlock Web Audio on this user tap (no-op after first call).
+    // Must happen in a gesture handler for iOS Safari to allow playback.
+    await unlockAudio()
+
+    // Best-effort: request notification permission for background alerts
+    requestNotificationPermission()
+
     await completeSet(currentSet.weight, currentSet.reps)
     setPhase('rest')
     timer.start(currentSet.exercise.restSeconds)
@@ -103,6 +111,9 @@ export default function WorkoutScreen() {
   }
 
   const handleNextWarmupSet = () => {
+    // Unlock audio early on any user tap during warmup
+    unlockAudio()
+
     const warmups = getWarmupSets()
     if (warmupSetIndex < warmups.length - 1) {
       setWarmupSetIndex(prev => prev + 1)

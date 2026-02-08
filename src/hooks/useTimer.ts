@@ -1,4 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  playDing,
+  vibrate,
+  startSilentLoop,
+  stopSilentLoop,
+  showTimerNotification,
+} from '../utils/audio'
 
 interface UseTimerReturn {
   timeRemaining: number
@@ -9,104 +16,119 @@ interface UseTimerReturn {
   formatTime: (seconds: number) => string
 }
 
-// Audio context for timer alert
-let audioContext: AudioContext | null = null
-
-function playAlertSound() {
-  try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-    }
-
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    oscillator.frequency.value = 800
-    oscillator.type = 'sine'
-
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-
-    oscillator.start(audioContext.currentTime)
-    oscillator.stop(audioContext.currentTime + 0.5)
-
-    // Play 3 beeps
-    setTimeout(() => {
-      const osc2 = audioContext!.createOscillator()
-      const gain2 = audioContext!.createGain()
-      osc2.connect(gain2)
-      gain2.connect(audioContext!.destination)
-      osc2.frequency.value = 800
-      osc2.type = 'sine'
-      gain2.gain.setValueAtTime(0.3, audioContext!.currentTime)
-      gain2.gain.exponentialRampToValueAtTime(0.01, audioContext!.currentTime + 0.5)
-      osc2.start(audioContext!.currentTime)
-      osc2.stop(audioContext!.currentTime + 0.5)
-    }, 200)
-
-    setTimeout(() => {
-      const osc3 = audioContext!.createOscillator()
-      const gain3 = audioContext!.createGain()
-      osc3.connect(gain3)
-      gain3.connect(audioContext!.destination)
-      osc3.frequency.value = 1000
-      osc3.type = 'sine'
-      gain3.gain.setValueAtTime(0.3, audioContext!.currentTime)
-      gain3.gain.exponentialRampToValueAtTime(0.01, audioContext!.currentTime + 0.8)
-      osc3.start(audioContext!.currentTime)
-      osc3.stop(audioContext!.currentTime + 0.8)
-    }, 400)
-  } catch (e) {
-    console.warn('Could not play alert sound:', e)
-  }
-}
-
-function vibrate() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate([200, 100, 200, 100, 400])
-  }
-}
-
+/**
+ * Timestamp-based timer that stays accurate even when the browser throttles
+ * setInterval in the background. Instead of decrementing a counter each tick
+ * we store the target end-time and compute the remaining seconds on every
+ * tick (and when the app regains focus).
+ */
 export function useTimer(onComplete?: () => void): UseTimerReturn {
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
+
+  // Refs so callbacks always see latest values without re-creating timers
+  const endTimeRef = useRef<number>(0)
   const intervalRef = useRef<number | null>(null)
   const onCompleteRef = useRef(onComplete)
+  const isRunningRef = useRef(false)
+  const notificationTimeoutRef = useRef<number | null>(null)
 
-  // Keep callback ref updated
   useEffect(() => {
     onCompleteRef.current = onComplete
   }, [onComplete])
+
+  // ------------------------------------------------------------------
+  // Core tick – compute remaining from wall-clock
+  // ------------------------------------------------------------------
+
+  const tick = useCallback(() => {
+    const remaining = Math.max(
+      0,
+      Math.round((endTimeRef.current - Date.now()) / 1000),
+    )
+    setTimeRemaining(remaining)
+
+    if (remaining <= 0 && isRunningRef.current) {
+      // Timer done!
+      isRunningRef.current = false
+      setIsRunning(false)
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+
+      // Alert the user
+      playDing()
+      vibrate()
+      stopSilentLoop()
+      showTimerNotification()
+      onCompleteRef.current?.()
+    }
+  }, [])
+
+  // ------------------------------------------------------------------
+  // Re-sync when the tab / PWA regains visibility
+  // ------------------------------------------------------------------
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isRunningRef.current) {
+        tick()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibility)
+  }, [tick])
+
+  // ------------------------------------------------------------------
+  // Public API
+  // ------------------------------------------------------------------
 
   const stop = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current)
+      notificationTimeoutRef.current = null
+    }
+    isRunningRef.current = false
     setIsRunning(false)
+    stopSilentLoop()
   }, [])
 
-  const start = useCallback((seconds: number) => {
-    stop()
-    setTimeRemaining(seconds)
-    setIsRunning(true)
+  const start = useCallback(
+    (seconds: number) => {
+      stop()
 
-    intervalRef.current = window.setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          stop()
-          playAlertSound()
-          vibrate()
-          onCompleteRef.current?.()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }, [stop])
+      const now = Date.now()
+      endTimeRef.current = now + seconds * 1000
+
+      setTimeRemaining(seconds)
+      isRunningRef.current = true
+      setIsRunning(true)
+
+      // Start the silent audio loop to keep iOS audio session alive
+      startSilentLoop()
+
+      // Schedule a backup notification in case JS is fully suspended
+      if ('Notification' in window && Notification.permission === 'granted') {
+        notificationTimeoutRef.current = window.setTimeout(() => {
+          if (isRunningRef.current) {
+            showTimerNotification()
+          }
+        }, seconds * 1000)
+      }
+
+      // Tick every 250ms for smoother updates & faster background recovery
+      intervalRef.current = window.setInterval(tick, 250)
+    },
+    [stop, tick],
+  )
 
   const skip = useCallback(() => {
     stop()
@@ -117,9 +139,10 @@ export function useTimer(onComplete?: () => void): UseTimerReturn {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (notificationTimeoutRef.current)
+        clearTimeout(notificationTimeoutRef.current)
+      stopSilentLoop()
     }
   }, [])
 
@@ -135,6 +158,6 @@ export function useTimer(onComplete?: () => void): UseTimerReturn {
     start,
     stop,
     skip,
-    formatTime
+    formatTime,
   }
 }
