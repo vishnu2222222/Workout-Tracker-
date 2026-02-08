@@ -20,14 +20,36 @@ export interface Workout {
   completed: boolean
 }
 
+export interface CustomExercise {
+  exerciseId: string
+  sets: number
+  targetReps: string
+  rpe: number
+  restSeconds: number
+  order: number
+}
+
+export interface CustomWorkout {
+  id: string // 'push' or 'pull'
+  exercises: CustomExercise[]
+  updatedAt: Date
+}
+
 const db = new Dexie('WorkoutTrackerDB') as Dexie & {
   workouts: EntityTable<Workout, 'id'>
   sets: EntityTable<WorkoutSet, 'id'>
+  customWorkouts: EntityTable<CustomWorkout, 'id'>
 }
 
 db.version(1).stores({
   workouts: 'id, type, date, completed',
   sets: '++id, workoutId, exerciseId, [workoutId+exerciseId]'
+})
+
+db.version(2).stores({
+  workouts: 'id, type, date, completed',
+  sets: '++id, workoutId, exerciseId, [workoutId+exerciseId]',
+  customWorkouts: 'id'
 })
 
 export { db }
@@ -116,4 +138,22 @@ export async function getWorkoutById(id: string): Promise<Workout | undefined> {
 export async function deleteWorkout(id: string): Promise<void> {
   await db.sets.where('workoutId').equals(id).delete()
   await db.workouts.delete(id)
+}
+
+// Custom workout functions
+export async function getCustomWorkout(type: 'push' | 'pull'): Promise<CustomWorkout | undefined> {
+  return db.customWorkouts.get(type)
+}
+
+export async function saveCustomWorkout(type: 'push' | 'pull', exercises: CustomExercise[]): Promise<void> {
+  const customWorkout: CustomWorkout = {
+    id: type,
+    exercises,
+    updatedAt: new Date()
+  }
+  await db.customWorkouts.put(customWorkout)
+}
+
+export async function resetWorkoutToDefault(type: 'push' | 'pull'): Promise<void> {
+  await db.customWorkouts.delete(type)
 }

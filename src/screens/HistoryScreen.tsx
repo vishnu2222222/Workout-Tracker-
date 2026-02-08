@@ -40,48 +40,35 @@ export default function HistoryScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-800">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-400 hover:text-white p-2 -ml-2"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-bold">History</h1>
-          <div className="w-10" />
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col">
+      {/* Frosted glass header */}
+      <header className="sticky top-0 z-10 glass-header p-4">
+        <h1 className="text-xl font-bold text-center">History</h1>
 
-      {/* Filter tabs */}
-      <div className="p-4 border-b border-gray-800">
-        <div className="flex gap-2">
-          <FilterButton
+        {/* Pill-style filter tabs */}
+        <div className="flex gap-2 mt-4">
+          <FilterPill
             label="All"
             active={filter === 'all'}
             onClick={() => setFilter('all')}
           />
-          <FilterButton
+          <FilterPill
             label="Push"
             active={filter === 'push'}
             onClick={() => setFilter('push')}
             color="amber"
           />
-          <FilterButton
+          <FilterPill
             label="Pull"
             active={filter === 'pull'}
             onClick={() => setFilter('pull')}
             color="emerald"
           />
         </div>
-      </div>
+      </header>
 
       {/* Workout list */}
-      <main className="flex-1 p-4 overflow-y-auto">
+      <main className="flex-1 p-4 pb-24 overflow-y-auto">
         {historyLoading ? (
           <div className="text-center text-gray-500 py-8">Loading...</div>
         ) : filteredWorkouts.length === 0 ? (
@@ -100,7 +87,7 @@ export default function HistoryScreen() {
               <button
                 key={workout.id}
                 onClick={() => navigate(`/history/${workout.id}`)}
-                className="w-full bg-gray-800 rounded-xl p-4 text-left hover:bg-gray-750 transition-colors"
+                className="w-full glass-card text-left hover:bg-white/[0.06] transition-colors"
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -128,13 +115,18 @@ export default function HistoryScreen() {
         )}
       </main>
 
-      {/* Bottom navigation */}
-      <nav className="p-4 border-t border-gray-800">
+      {/* Frosted glass bottom navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 glass-nav p-4 safe-bottom">
         <div className="flex justify-around">
           <NavButton
             icon={<HomeIcon />}
             label="Home"
             onClick={() => navigate('/')}
+          />
+          <NavButton
+            icon={<DumbbellIcon />}
+            label="Exercises"
+            onClick={() => navigate('/exercises')}
           />
           <NavButton
             icon={<HistoryIcon />}
@@ -147,7 +139,7 @@ export default function HistoryScreen() {
   )
 }
 
-function FilterButton({
+function FilterPill({
   label,
   active,
   onClick,
@@ -158,34 +150,22 @@ function FilterButton({
   onClick: () => void
   color?: 'amber' | 'emerald'
 }) {
-  const baseClasses = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
+  let activeStyles = 'bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_2px_12px_rgba(59,130,246,0.3)]'
 
-  if (active) {
-    if (color === 'amber') {
-      return (
-        <button className={`${baseClasses} bg-amber-500 text-gray-900`} onClick={onClick}>
-          {label}
-        </button>
-      )
-    }
-    if (color === 'emerald') {
-      return (
-        <button className={`${baseClasses} bg-emerald-500 text-white`} onClick={onClick}>
-          {label}
-        </button>
-      )
-    }
-    return (
-      <button className={`${baseClasses} bg-blue-600 text-white`} onClick={onClick}>
-        {label}
-      </button>
-    )
+  if (active && color === 'amber') {
+    activeStyles = 'bg-gradient-to-b from-amber-400 to-amber-500 text-gray-900 shadow-[0_2px_12px_rgba(245,158,11,0.3)]'
+  } else if (active && color === 'emerald') {
+    activeStyles = 'bg-gradient-to-b from-emerald-400 to-emerald-500 text-white shadow-[0_2px_12px_rgba(16,185,129,0.3)]'
   }
 
   return (
     <button
-      className={`${baseClasses} bg-gray-700 text-gray-300 hover:bg-gray-600`}
       onClick={onClick}
+      className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+        active
+          ? activeStyles
+          : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700/60'
+      }`}
     >
       {label}
     </button>
@@ -206,11 +186,14 @@ function NavButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors
-        ${active ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}
+      className={`flex flex-col items-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200
+        ${active
+          ? 'text-blue-400'
+          : 'text-gray-500 hover:text-gray-300 active:scale-95'
+        }`}
     >
       {icon}
-      <span className="text-xs">{label}</span>
+      <span className="text-xs font-medium">{label}</span>
     </button>
   )
 }
@@ -220,6 +203,15 @@ function HomeIcon() {
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  )
+}
+
+function DumbbellIcon() {
+  return (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M4 10h2v4H4a1 1 0 01-1-1v-2a1 1 0 011-1zm16 0h-2v4h2a1 1 0 001-1v-2a1 1 0 00-1-1zM6 8h2v8H6a1 1 0 01-1-1V9a1 1 0 011-1zm12 0h-2v8h2a1 1 0 001-1V9a1 1 0 00-1-1zM8 11h8v2H8z" />
     </svg>
   )
 }

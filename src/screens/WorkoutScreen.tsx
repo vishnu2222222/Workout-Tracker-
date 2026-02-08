@@ -70,7 +70,7 @@ export default function WorkoutScreen() {
 
   if (!workout || !currentSet) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     )
@@ -133,32 +133,33 @@ export default function WorkoutScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-800">
+    <div className="min-h-screen flex flex-col">
+      {/* Frosted glass header */}
+      <header className="sticky top-0 z-10 glass-header p-4">
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
-            className="text-gray-400 hover:text-white p-2 -ml-2"
+            className="w-10 h-10 rounded-full flex items-center justify-center
+                       text-gray-400 hover:text-white hover:bg-white/10 transition-colors -ml-2"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div className="text-center">
-            <div className={`text-sm font-semibold uppercase ${
+            <div className={`text-sm font-semibold uppercase tracking-wide ${
               workout.type === 'push' ? 'text-amber-400' : 'text-emerald-400'
             }`}>
               {workout.type} Day
             </div>
-            <div className="text-gray-500 text-xs">{formatDuration(workoutDuration)}</div>
+            <div className="text-gray-500 text-xs font-medium">{formatDuration(workoutDuration)}</div>
           </div>
-          <div className="w-10" /> {/* Spacer for alignment */}
+          <div className="w-10" />
         </div>
       </header>
 
       {/* Progress bar */}
-      <div className="px-4 py-2 bg-gray-850">
+      <div className="px-4 py-3 glass-card mx-4 mt-2 mb-4">
         <WorkoutProgressBar completed={completedSetsCount} total={totalSets} />
       </div>
 
@@ -202,14 +203,14 @@ interface RestTimerViewProps {
 function RestTimerView({ timeRemaining, nextExercise, nextSetNumber, onSkip }: RestTimerViewProps) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-8">
-      <div className="text-gray-400 text-lg">Rest</div>
+      <div className="text-gray-400 text-lg font-medium uppercase tracking-wide">Rest</div>
 
       <Timer seconds={timeRemaining} size="lg" />
 
-      <div className="text-center text-gray-500">
-        <div className="text-sm">Next up:</div>
-        <div className="text-white font-medium">{nextExercise}</div>
-        <div className="text-sm">Set {nextSetNumber}</div>
+      <div className="glass-card text-center px-6 py-4">
+        <div className="text-gray-500 text-sm">Next up:</div>
+        <div className="text-white font-semibold text-lg mt-1">{nextExercise}</div>
+        <div className="text-gray-400 text-sm">Set {nextSetNumber}</div>
       </div>
 
       <Button
@@ -237,28 +238,30 @@ function WarmupView({ exerciseName, warmupSets, currentIndex, onNext, onSkip }: 
     <div className="flex-1 flex flex-col">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-white">{exerciseName}</h2>
-        <div className="text-blue-400 text-lg mt-1">Warm-up</div>
+        <div className="text-blue-400 text-lg mt-1 font-medium">Warm-up</div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center gap-6">
-        <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
-          <div className="text-gray-400 text-sm mb-2 text-center">
+        <div className="glass-card p-8 w-full max-w-sm">
+          <div className="text-gray-400 text-sm mb-3 text-center font-medium">
             Warm-up {currentIndex + 1} of {warmupSets.length}
           </div>
-          <div className="text-3xl font-bold text-center text-white">
+          <div className="text-4xl font-bold text-center text-white">
             {warmupSets[currentIndex]}
           </div>
         </div>
 
         {/* Warm-up progress dots */}
-        <div className="flex gap-2">
+        <div className="flex gap-2.5">
           {warmupSets.map((_, i) => (
             <div
               key={i}
-              className={`w-3 h-3 rounded-full transition-all ${
-                i < currentIndex ? 'bg-blue-500' :
-                i === currentIndex ? 'bg-blue-400 ring-2 ring-blue-300' :
-                'bg-gray-600'
+              className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                i < currentIndex
+                  ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]'
+                  : i === currentIndex
+                  ? 'bg-blue-400 ring-2 ring-blue-300/50 shadow-[0_0_12px_rgba(59,130,246,0.5)]'
+                  : 'bg-gray-600/80'
               }`}
             />
           ))}
@@ -319,10 +322,10 @@ function WorkingSetView({ currentSet, onComplete, onWeightChange, onRepsChange }
       {/* Exercise info */}
       <div className="text-center mb-4">
         <h2 className="text-2xl font-bold text-white">{exercise.name}</h2>
-        <div className="text-gray-400 mt-1">
+        <div className="text-gray-400 mt-1 font-medium">
           Set {setNumber} of {exercise.sets}
         </div>
-        <div className="flex justify-center mt-2">
+        <div className="flex justify-center mt-3">
           <SetProgressDots
             total={exercise.sets}
             completed={completedSets}
@@ -332,24 +335,31 @@ function WorkingSetView({ currentSet, onComplete, onWeightChange, onRepsChange }
       </div>
 
       {/* Target info */}
-      <div className="bg-gray-800 rounded-xl p-4 mb-4">
+      <div className="glass-card mb-4">
         <div className="flex justify-around text-center">
           <div>
-            <div className="text-gray-500 text-xs">Target Reps</div>
-            <div className="text-white font-semibold">{exercise.targetReps}</div>
+            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">Target Reps</div>
+            <div className="text-white font-semibold text-lg mt-1">{exercise.targetReps}</div>
           </div>
-          <div className="w-px bg-gray-700" />
+          <div className="w-px bg-white/10" />
           <div>
-            <div className="text-gray-500 text-xs">RPE</div>
-            <div className="text-white font-semibold">{exercise.rpe}</div>
+            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">RPE</div>
+            <div className="text-white font-semibold text-lg mt-1">{exercise.rpe}</div>
           </div>
         </div>
       </div>
 
       {/* Last session reference */}
       {lastSession && lastSession.weight > 0 && (
-        <div className="bg-blue-900/30 border border-blue-800 rounded-xl p-4 mb-6 text-center">
-          <div className="text-blue-400 text-sm mb-1">Last time</div>
+        <div className="mb-6 text-center"
+          style={{
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '1rem',
+            padding: '1rem'
+          }}
+        >
+          <div className="text-blue-400 text-sm mb-1 font-medium">Last time</div>
           <div className="text-xl font-bold text-white">
             {lastSession.weight} lbs x {lastSession.reps} reps
           </div>

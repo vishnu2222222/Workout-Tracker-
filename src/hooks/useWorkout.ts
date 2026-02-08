@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
-import { type Exercise, getExercises, getTotalSets } from '../data/exercises'
+import { type Exercise, getExercises } from '../data/exercises'
 import {
   type Workout,
   type WorkoutSet,
+  type CustomExercise,
   createWorkout,
   completeWorkout,
   addSet,
   getWorkoutSets,
-  getLastSetForExercise
+  getLastSetForExercise,
+  getCustomWorkout
 } from '../data/database'
+import { getExerciseById } from '../data/exerciseLibrary'
 
 export interface CurrentSet {
   exercise: Exercise
@@ -33,6 +36,46 @@ interface UseWorkoutReturn {
   setReps: (reps: number) => void
 }
 
+// Convert custom exercise from DB to Exercise type
+function customToExercise(custom: CustomExercise): Exercise | null {
+  const template = getExerciseById(custom.exerciseId)
+  if (!template) return null
+
+  return {
+    id: template.id,
+    name: template.name,
+    sets: custom.sets,
+    targetReps: custom.targetReps,
+    rpe: custom.rpe,
+    restSeconds: custom.restSeconds,
+    category: template.category
+  }
+}
+
+// Get exercises for a workout type, using customizations if available
+async function getWorkoutExercises(type: 'push' | 'pull'): Promise<Exercise[]> {
+  const customWorkout = await getCustomWorkout(type)
+
+  if (customWorkout && customWorkout.exercises.length > 0) {
+    const exercises = customWorkout.exercises
+      .sort((a, b) => a.order - b.order)
+      .map(customToExercise)
+      .filter((e): e is Exercise => e !== null)
+
+    if (exercises.length > 0) {
+      return exercises
+    }
+  }
+
+  // Fall back to default exercises
+  return getExercises(type)
+}
+
+// Calculate total sets for custom exercises
+function calculateTotalSets(exercises: Exercise[]): number {
+  return exercises.reduce((total, ex) => total + ex.sets, 0)
+}
+
 export function useWorkout(): UseWorkoutReturn {
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -49,7 +92,7 @@ export function useWorkout(): UseWorkoutReturn {
   const [allSets, setAllSets] = useState<WorkoutSet[]>([])
 
   const currentExercise = exercises[currentExerciseIndex]
-  const totalSets = workout ? getTotalSets(workout.type) : 0
+  const totalSets = calculateTotalSets(exercises)
 
   // Load last session data for current exercise
   useEffect(() => {
@@ -92,7 +135,7 @@ export function useWorkout(): UseWorkoutReturn {
     setIsLoading(true)
     try {
       const newWorkout = await createWorkout(type)
-      const workoutExercises = getExercises(type)
+      const workoutExercises = await getWorkoutExercises(type)
 
       setWorkout(newWorkout)
       setExercises(workoutExercises)
